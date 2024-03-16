@@ -1,25 +1,33 @@
 from .database import Base
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+from sqlalchemy import Boolean, CheckConstraint, Column, Integer, String ,Time, DateTime, Float, ForeignKey, func
 from sqlalchemy.orm import relationship
 
 class Player(Base):
     __tablename__ = "players"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_name = Column(String, index=True)
+    player_name = Column(String, index=True)
+    color_id = Column(Integer) #1 for black, 2 for white
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=True)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     # Define relationship
     moves = relationship("Move", back_populates="player")
+    piece = relationship("Piece", back_populates="player")
 
 class Game(Base):
     __tablename__ = "games"
 
     id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    player1_id = Column(Integer, ForeignKey('players.id'))
+    player2_id = Column(Integer, ForeignKey('players.id'))
     is_finished = Column(Boolean, default=False)
-    winner = Column(String, default=None)
+    # winner = Column(String, default=None)
 
     # Define relationship
     moves = relationship("Move", back_populates="game")
+    player1 = relationship("Player", foreign_keys=[player1_id])
+    player2 = relationship("Player", foreign_keys=[player2_id])
   
 class Piece(Base):
     __tablename__ = "pieces"
@@ -27,8 +35,10 @@ class Piece(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
     starting_position = Column(String)
+    player_id = Column(Integer, ForeignKey('players.id'))
 
     # Define relationship
+    player = relationship("Player", back_populates="piece")
     moves = relationship("Move", back_populates="piece")
 
 class Move(Base):
