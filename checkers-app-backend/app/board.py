@@ -1,4 +1,4 @@
-
+from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.orm import Session
 from . import models, schemas
 
@@ -16,6 +16,11 @@ def initialize_board(player1_id: int, player2_id: int, db: Session):
     ]
 
     # Create pieces and associate them with players
+    # db.query(models.Piece).delete()
+    # Delete referencing records from the 'moves' table
+    db.query(models.Move).filter(models.Move.piece_id.in_(db.query(models.Piece.id))).delete(synchronize_session=False)
+
+    # Delete records from the 'pieces' table
     db.query(models.Piece).delete()
     db.commit()
     piece_id = 1
@@ -23,12 +28,12 @@ def initialize_board(player1_id: int, player2_id: int, db: Session):
         for j, cell in enumerate(row):
             if cell == 'B':
                 # piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player)
-                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player1_id)
+                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position='{' + ','.join([str(i), str(j)]) + '}', player_id=player1_id)
                 db.add(piece)
                 piece_id += 1
             elif cell == 'W':
                 # piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player2.id)
-                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player2_id)
+                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position='{' + ','.join([str(i), str(j)]) + '}', player_id=player2_id)
                 db.add(piece)
                 piece_id += 1
 

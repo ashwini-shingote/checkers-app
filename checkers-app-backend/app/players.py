@@ -15,18 +15,3 @@ def create_new_player(db: Session, player: schemas.PlayerCreate):
     db.commit()
     db.refresh(db_player)
     return db_player
-
-
-    # piece_id = 1
-    # for i, row in enumerate(board):
-    #     for j, cell in enumerate(row):
-    #         if cell == 'B':
-    #             piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player1.id)
-    #             db.add(piece)
-    #             piece_id += 1
-    #         elif cell == 'W':
-    #             piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player2.id)
-    #             db.add(piece)
-    #             piece_id += 1
-
-    # db.commit()
