@@ -3,6 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from . import models, schemas
 
+
 def move_piece_from_to(session, piece_id, from_position, to_position):
     # Query for the piece
     piece = session.query(models.Piece).filter(models.Piece.id == piece_id).first()

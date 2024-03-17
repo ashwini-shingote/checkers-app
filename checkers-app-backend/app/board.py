@@ -28,12 +28,12 @@ def initialize_board(player1_id: int, player2_id: int, db: Session):
         for j, cell in enumerate(row):
             if cell == 'B':
                 # piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player)
-                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position='{' + ','.join([str(i), str(j)]) + '}', player_id=player1_id)
+                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', position='{' + ','.join([str(i), str(j)]) + '}', player_id=player1_id)
                 db.add(piece)
                 piece_id += 1
             elif cell == 'W':
                 # piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position=str([i, j]), player_id=player2.id)
-                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', starting_position='{' + ','.join([str(i), str(j)]) + '}', player_id=player2_id)
+                piece = models.Piece(id=piece_id, name=f'{cell}{piece_id}', position='{' + ','.join([str(i), str(j)]) + '}', player_id=player2_id)
                 db.add(piece)
                 piece_id += 1
 

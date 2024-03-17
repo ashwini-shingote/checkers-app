@@ -8,8 +8,8 @@ sqlalchemy = "*"
 pydantic = "*"
 fastapi = "*"
 psycopg2-binary = "*"
-alembic = "*"
 uvicorn = {extras = ["standard"], version = "*"}
+alembic = "*"
 
 [dev-packages]
 
