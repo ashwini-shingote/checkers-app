@@ -45,7 +45,10 @@ def get_adjacent_cells(row: int, col: int) -> List[Tuple[int, int]]:
 def is_valid_cell(row: int, col: int) -> bool:
     return 0 <= row < 8 and 0 <= col < 8
 
-def is_valid_move(color_id: int, from_position: Tuple[int, int], to_position: Tuple[int, int]) -> bool:
+def is_valid_move_direction(
+                color_id: int, 
+                from_position: Tuple[int, int], 
+                to_position: Tuple[int, int]) -> bool:
     row, col = from_position
     new_row, new_col = to_position
     # piece = board_state_func()

@@ -34,7 +34,8 @@ class Piece(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
-    starting_position = Column(String)
+    position = Column(String)
+    is_out = Column(Boolean, default=False)
     player_id = Column(Integer, ForeignKey('players.id'))
 
     # Define relationship

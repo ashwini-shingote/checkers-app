@@ -7,7 +7,6 @@ class ErrorResponse(BaseModel):
     error: str
 
 class PlayerBase(BaseModel):
-    # id: int # later remove this id, when user is logs in from frontend
     player_name: str
     color_id: int
 
@@ -45,7 +44,6 @@ class MoveBase(BaseModel):
     move_type_id: int
     move_order: int
     from_position: str
-    # from_position: str(List[int,int]) # type: ignore
     to_position: str
     piece_taken: str
     is_king: bool
@@ -58,8 +56,9 @@ class MovesUpdate(MoveBase):
 class PieceBase(BaseModel):
     id: int
     name: str
-    starting_position: str
+    position: str
     player_id: int
+    is_out: bool
 
 # ---------------------------------------------------------------
 # for Health check

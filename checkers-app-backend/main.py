@@ -22,7 +22,7 @@ from app.moves import move_piece_from_to
 from app.utils import (
         get_adjacent_cells, 
         is_valid_cell, 
-        is_valid_move, 
+        is_valid_move_direction, 
         board_state_func
 )
 from app.board import initialize_board
@@ -77,7 +77,9 @@ def create_player(
     db.refresh(player1)
     db.refresh(player2)
 
-    game = models.Game(player1_id=player1.id, player2_id=player2.id)
+    game = models.Game(
+                player1_id=player1.id, 
+                player2_id=player2.id)
     db.add(game)
     db.commit()
     db.refresh(game)
@@ -85,15 +87,19 @@ def create_player(
 
 # create board with players id received
 @app.get("/create-board/{player1_id}/{player2_id}", response_model=GameInitialize)
-def create_board(player1_id: int, player2_id: int, db: Session = Depends(get_db)):
+def create_board(
+                player1_id: int, 
+                player2_id: int, 
+                db: Session = Depends(get_db)
+                ):
     initial_board = initialize_board(player1_id=player1_id, player2_id=player2_id, db=db)
     # return {"board": initial_board}
     return {"board": initial_board, "player1_id": player1_id, "player2_id": player2_id}
 
 # move piece
 @app.get(
-        "/move-piece/{game_id}/{player_id}/{piece_id}/{from_position}/{to_position}", 
-         response_model=Union[MovesUpdate, PieceBase, ErrorResponse]
+                "/move-piece/{game_id}/{player_id}/{piece_id}/{from_position}/{to_position}", 
+                response_model=Union[MovesUpdate, PieceBase, ErrorResponse]
         )
 def move_piece(
                 piece_id: int, 
@@ -111,7 +117,7 @@ def move_piece(
     piece = db.query(models.Piece).filter(models.Piece.id == piece_id).first()
 
     # Check if the piece is at the expected position
-    if piece.starting_position != str(from_position) or piece.starting_position == "":
+    if piece.position != str(from_position) or piece.position == "":
         # raise ValueError(f"Piece is not at position {from_position}")
         return ErrorResponse(error="Piece is not at given start position ")
     
@@ -132,7 +138,7 @@ def move_piece(
 
     # Query for color of the player
     current_player = db.query(models.Player).filter(models.Player.id == player_id).first()
-    if not is_valid_move(current_player.color_id,(int(from_position[1]), int(from_position[3])), (int(to_position[1]), int(to_position[3]))):
+    if not is_valid_move_direction(current_player.color_id,(int(from_position[1]), int(from_position[3])), (int(to_position[1]), int(to_position[3]))):
         # raise ValueError(f"Invalid move to position {to_position}")
         return ErrorResponse(error="Invalid move")
 
@@ -141,7 +147,7 @@ def move_piece(
     db.refresh(piece)
 
     # Update the piece's position
-    piece.starting_position = to_position
+    piece.position = to_position
     # update the piece's position in the database
     moves = models.Move(
                         piece_id=piece_id, 
