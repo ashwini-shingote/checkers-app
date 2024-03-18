@@ -125,3 +125,29 @@ def promote_to_king(
         return True
 
     return False
+
+
+def capture_piece(
+    from_position: str, 
+    to_position: str, 
+    player_id: int, 
+    game_id: int, 
+    db: Session = Depends(get_db)
+) -> bool:
+    
+    from_row, from_col = map(int, from_position.strip('{}').split(','))
+    to_row, to_col = map(int, to_position.strip('{}').split(','))
+    jumped_row, jumped_col = (from_row + to_row) // 2, (from_col + to_col) // 2
+    jumped_position = f'{{{jumped_row},{jumped_col}}}'
+    
+    jumped_piece = db.query(models.Piece).filter(
+        models.Piece.position == jumped_position,
+        models.Piece.player_id != player_id, 
+        models.Piece.is_out == False
+    ).first()
+    
+    if jumped_piece:
+
+        jumped_piece.is_out = True
+        db.commit()
+        return True
