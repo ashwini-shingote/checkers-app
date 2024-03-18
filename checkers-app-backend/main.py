@@ -190,7 +190,7 @@ def move_piece(
 def empty_cells(row: int, col: int):
     return get_adjacent_cells(row, col)
 
-
+#promote to king endpoint, needs testing
 @app.post("/game/{game_id}/promote-to-king/", response_model=schemas.MoveBase)
 def promote_to_king_endpoint(
     game_id: int,
@@ -213,8 +213,36 @@ def promote_to_king_endpoint(
 
             raise HTTPException(status_code=404, detail="Promotion move not found.")
     else:
-        
+
         raise HTTPException(status_code=400, detail="Promotion to king failed.")
+    
+
+#capture piece endpoint, needs testing
+@app.post("/game/{game_id}/{player_id}/capture-piece/", response_model=schemas.MoveBase)
+def capture_piece_endpoint(
+    game_id: int,
+    player_id: int,
+    from_position: str,
+    to_position: str,
+    db: Session = Depends(database.get_db)
+):
+    successful_capture = utils.capture_piece(from_position, to_position, player_id, game_id, db)
+
+    if not successful_capture:
+        raise HTTPException(status_code=400, detail="Invalid capture attempt or no piece to capture at the specified position.")
+    
+    latest_move = db.query(models.Move).filter_by(
+        game_id=game_id,
+        player_id=player_id
+    ).order_by(models.Move.id.desc()).first()
+
+    if latest_move:
+
+        return schemas.MoveBase.from_orm(latest_move)
+    else:
+
+        raise HTTPException(status_code=404, detail="Failed to retrieve the move record after capture.")
+
 
 # Health check
 @app.get("/healthz", response_model=Healthz)

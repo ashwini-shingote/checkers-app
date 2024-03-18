@@ -132,14 +132,14 @@ def capture_piece(
     to_position: str, 
     player_id: int, 
     game_id: int, 
-    db: Session = Depends(get_db)
+    db: Session
 ) -> bool:
     
     from_row, from_col = map(int, from_position.strip('{}').split(','))
     to_row, to_col = map(int, to_position.strip('{}').split(','))
     jumped_row, jumped_col = (from_row + to_row) // 2, (from_col + to_col) // 2
     jumped_position = f'{{{jumped_row},{jumped_col}}}'
-    
+
     jumped_piece = db.query(models.Piece).filter(
         models.Piece.position == jumped_position,
         models.Piece.player_id != player_id, 
@@ -149,5 +149,37 @@ def capture_piece(
     if jumped_piece:
 
         jumped_piece.is_out = True
+
+        capturing_piece = db.query(models.Piece).filter(
+            models.Piece.position == from_position,
+            models.Piece.player_id == player_id,
+            models.Piece.is_out == False
+        ).first()
+
+        if not capturing_piece:
+            return False  
+
+        last_move = db.query(models.Move).filter_by(game_id=game_id).order_by(models.Move.move_order.desc()).first()
+        next_move_order = last_move.move_order + 1 if last_move else 1
+
+        capture_move_type = db.query(models.MoveType).filter_by(name="capture").first()
+        if not capture_move_type:
+            return False
+
+        new_move = models.Move(
+            piece_id=capturing_piece.id,
+            game_id=game_id,
+            player_id=player_id,
+            move_type_id=capture_move_type.id,
+            move_order=next_move_order,
+            from_position=from_position,
+            to_position=to_position,
+            piece_taken=jumped_piece.id,
+            is_king=capturing_piece.is_king 
+        )
+
+        db.add(new_move)
         db.commit()
+
         return True
+    return False
