@@ -24,8 +24,6 @@ from app.utils import (
         is_valid_cell, 
         is_valid_move_direction,    
         is_same_color,
-        promote_to_king,
-        capture_piece
 )
 from app.board import initialize_board
 
