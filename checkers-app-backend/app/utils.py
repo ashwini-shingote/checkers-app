@@ -1,7 +1,7 @@
 from typing import Callable, List, Tuple
 from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException
-from app import database, models, schemas
+from app import database, models, schemas, utils
 # Dependency
 
 def get_db():

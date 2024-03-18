@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from pydantic import ValidationError
 from ast import literal_eval
 from datetime import datetime, timezone
-from app import database, models
+from app import database, models, utils, schemas
 from app.schemas import (
         ErrorResponse,
         PlayerBase,
@@ -23,7 +23,9 @@ from app.utils import (
         get_adjacent_cells, 
         is_valid_cell, 
         is_valid_move_direction,    
-        is_same_color
+        is_same_color,
+        promote_to_king,
+        capture_piece
 )
 from app.board import initialize_board
 
@@ -187,6 +189,32 @@ def move_piece(
 @app.get("/empty-cells/{row}/{col}")
 def empty_cells(row: int, col: int):
     return get_adjacent_cells(row, col)
+
+
+@app.post("/game/{game_id}/promote-to-king/", response_model=schemas.MoveBase)
+def promote_to_king_endpoint(
+    game_id: int,
+    player_id: int,
+    piece_id: int,
+    to_position: str,
+    db: Session = Depends(get_db)
+):
+
+    if utils.promote_to_king(piece_id, to_position, player_id, game_id, db):
+
+        latest_move = db.query(models.Move).filter_by(
+            piece_id=piece_id, 
+            game_id=game_id
+        ).order_by(models.Move.id.desc()).first()
+        
+        if latest_move:
+            return schemas.MoveBase.from_orm(latest_move)
+        else:
+
+            raise HTTPException(status_code=404, detail="Promotion move not found.")
+    else:
+        
+        raise HTTPException(status_code=400, detail="Promotion to king failed.")
 
 # Health check
 @app.get("/healthz", response_model=Healthz)
