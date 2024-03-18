@@ -222,7 +222,7 @@ def capture_piece_endpoint(
     player_id: int,
     from_position: str,
     to_position: str,
-    db: Session = Depends(database.get_db)
+    db: Session = Depends(get_db)
 ):
     successful_capture = utils.capture_piece(from_position, to_position, player_id, game_id, db)
 
