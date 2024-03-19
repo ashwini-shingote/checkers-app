@@ -100,29 +100,17 @@ def promote_to_king(
 
     player = db.query(models.Player).filter(models.Player.id == player_id).first()
     
-    if player and ((player.color_id == 1 and new_row == 7) or (player.color_id == 2 and new_row == 0)):
-        #I have called the move type promotion, if you had anything else in mind we can change it later
-        promotion_move_type = db.query(models.MoveType).filter(models.MoveType.name == "promotion").first()
+    if player:
 
-        last_move_order = db.query(models.Move).filter(models.Move.game_id == game_id).order_by(models.Move.move_order.desc()).first()
-        next_move_order = last_move_order.move_order + 1 if last_move_order else 1 
+        if (player.color_id == 1 and new_row == 7) or (player.color_id == 2 and new_row == 0):
 
-        new_king_move = models.Move(
-            piece_id=piece_id,
-            game_id=game_id,
-            player_id=player_id,
-            move_type_id=promotion_move_type.id, #promotion name could change
-            move_order=next_move_order,
-            from_position=to_position,
-            to_position=to_position,
-            piece_taken='',
-            is_king=True
-        )
-        db.add(new_king_move)
+            piece = db.query(models.Piece).filter(models.Piece.id == piece_id).first()
+            if piece:
+                piece.is_king = True
 
-        end_game(game_id, player_id, db)
-        db.commit()
-        return True
+            end_game(game_id, db)
+
+            return True
 
     return False
 

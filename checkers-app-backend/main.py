@@ -1,5 +1,5 @@
-from fastapi import Depends, FastAPI, HTTPException
-from typing import Union
+from fastapi import Depends, FastAPI, HTTPException, status
+from typing import Union, Any
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
@@ -196,23 +196,12 @@ def promote_to_king_endpoint(
     piece_id: int,
     to_position: str,
     db: Session = Depends(get_db)
-):
+) -> Any:
 
     if utils.promote_to_king(piece_id, to_position, player_id, game_id, db):
-
-        latest_move = db.query(models.Move).filter_by(
-            piece_id=piece_id, 
-            game_id=game_id
-        ).order_by(models.Move.id.desc()).first()
-        
-        if latest_move:
-            return schemas.MoveBase.from_orm(latest_move)
-        else:
-
-            raise HTTPException(status_code=404, detail="Promotion move not found.")
+        return {"message": "The game has ended with a promotion to king."}
     else:
-
-        raise HTTPException(status_code=400, detail="Promotion to king failed.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Promotion to king failed.")
     
 
 #capture piece endpoint, needs testing
