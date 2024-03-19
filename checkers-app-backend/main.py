@@ -1,6 +1,7 @@
 from fastapi import Depends, FastAPI, HTTPException, status
 from typing import Union, Any
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
 from ast import literal_eval
@@ -189,19 +190,20 @@ def empty_cells(row: int, col: int):
     return get_adjacent_cells(row, col)
 
 #promote to king endpoint, needs testing
-@app.post("/game/{game_id}/promote-to-king/", response_model=schemas.MoveBase)
+
+@app.post("/game/{game_id}/promote-to-king/")
 def promote_to_king_endpoint(
     game_id: int,
     player_id: int,
     piece_id: int,
     to_position: str,
     db: Session = Depends(get_db)
-) -> Any:
-
-    if utils.promote_to_king(piece_id, to_position, player_id, game_id, db):
-        return {"message": "The game has ended with a promotion to king."}
+):
+    success = utils.promote_to_king(piece_id, to_position, player_id, game_id, db)
+    if success:
+        return JSONResponse(content={"detail": "Promotion successful"}, status_code=200)
     else:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Promotion to king failed.")
+        raise HTTPException(status_code=400, detail="Promotion failed.")
     
 
 #capture piece endpoint, needs testing

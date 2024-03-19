@@ -2,6 +2,7 @@ from typing import Callable, List, Tuple
 from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException
 from app import database, models, schemas, utils
+
 # Dependency
 
 def get_db():
@@ -88,6 +89,16 @@ def end_game(game_id: int, db: Session):
         db.commit()
 
 
+def is_valid_position_format(pos_str: str) -> bool:
+    if not pos_str.startswith("{") or not pos_str.endswith("}"):
+        return False
+    try:
+        x, y = map(int, pos_str.strip("{}").split(","))
+        return True
+    except ValueError:
+        return False
+    
+    
 def promote_to_king(
     piece_id: int, 
     to_position: str,
