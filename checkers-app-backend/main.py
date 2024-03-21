@@ -4,9 +4,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import ValidationError
-from ast import literal_eval
 from datetime import datetime, timezone
-from app import database, models, utils, schemas
+from app import database, models
 from app.schemas import (
         ErrorResponse,
         PlayerCreate,
@@ -16,7 +15,6 @@ from app.schemas import (
         PieceBase,
         Healthz
 )
-from app.moves import move_piece_from_to
 from app.utils import (
         get_adjacent_cells,
         is_valid_move_direction,    
