@@ -2,6 +2,9 @@ from sqlalchemy import ForeignKeyConstraint
 from sqlalchemy.orm import Session
 from . import models, schemas
 
+move_type_regular = "regular"
+move_type_captured = "captured"
+
 def initialize_board(player1_id: int, player2_id: int, db: Session):
 
     board = [
@@ -38,4 +41,14 @@ def initialize_board(player1_id: int, player2_id: int, db: Session):
                 piece_id += 1
 
     db.commit()
+
+    # Delete move_types records
+    db.query(models.MoveType).delete()
+    db.commit()
+
+    # Create move types
+    db.add(models.MoveType(name=move_type_regular))
+    db.add(models.MoveType(name=move_type_captured))
+    db.commit()
+
     return board

@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from fastapi import Depends, FastAPI, HTTPException
 from app import database, models, schemas, utils
 
-# Dependency
+move_type_regular = "regular"
+move_type_captured = "captured"
+
 
 def get_db():
     db = database.SessionLocal()
@@ -12,47 +14,40 @@ def get_db():
     finally:
         db.close()
 
-# #helper functions       
-# # def board_state_func(player1_id: int, player2_id: int, db: Session = Depends(get_db)):
-# def board_state_func():
-#     board = []
-#     for row in range(8):
-#         board.append([])
-#         for col in range(8):
-#             if (row + col) % 2 == 0:
-#                 board[row].append("")
-#             else:
-#                 if row < 3:
-#                     board[row].append("w")
-#                 elif row > 4:
-#                     board[row].append("b")
-#                 else:
-#                     board[row].append("")
-#     return board
 
-def get_adjacent_cells(row: int, col: int, db: Session = Depends(get_db)) -> List[Tuple[int, int]]:
-    board_state = board_state_func()
+def get_adjacent_cells(from_position: str, to_position:str, player_id:int, db: Session = Depends(get_db)) -> List[Tuple[int, int]]:
+
+    row, col = map(int, from_position.strip('{}').split(','))
 
     empty_cells = []
-    directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]]  # Diagonal directions
-    
+
+    directions = [[-1, -1], [-1, 1], [1, -1], [1, 1]]  # Diagonal crawls
     for dx, dy in directions:
         new_row, new_col = int(row) + dx, int(col) + dy
         
         if is_valid_cell(new_row, new_col) and is_cell_empty(new_row, new_col, db) == True:
             empty_cells.append((new_row, new_col))
     
+    directions = [[-2, -2], [-2, 2], [2, -2], [2, 2]]  # Diagonal jumps
+    for dx, dy in directions:
+        new_row, new_col = int(row) + dx, int(col) + dy
+        
+        if is_valid_cell(new_row, new_col) and is_cell_empty(new_row, new_col, db) == True and is_valid_jump(row, col, new_row, new_col, player_id, db) == True:
+            empty_cells.append((new_row, new_col))
+
     return empty_cells
+
 
 def is_valid_cell(row: int, col: int) -> bool:
     return 0 <= row < 8 and 0 <= col < 8
 
+
 def is_valid_move_direction(
-                color_id: int, 
-                from_position: Tuple[int, int], 
-                to_position: Tuple[int, int]) -> bool:
-    row, col = from_position
-    new_row, new_col = to_position
+                color_id: int,
+                row: int,
+                new_row: int,
+                new_col: int) -> bool:
+
     if (new_row + new_col) % 2 == 0:
         return False
     if color_id == 2 and new_row > row:
@@ -61,12 +56,14 @@ def is_valid_move_direction(
         return False
     return True
 
+
 def is_cell_empty(row: int, col: int, db: Session = Depends(get_db)) -> bool:
     to_position ='{' + ','.join([str(row), str(col)]) + '}'
     piece_at_position = db.query(models.Piece).filter(models.Piece.position == to_position, models.Piece.is_out == False).first()
     if piece_at_position is None:
         return True
     return False
+
 
 def is_same_color(to_position: str, player_color_id: int, db: Session = Depends(get_db)) -> bool:
     piece_at_position = db.query(models.Piece).filter(models.Piece.position == to_position, models.Piece.is_out == False).first()
@@ -80,7 +77,7 @@ def is_same_color(to_position: str, player_color_id: int, db: Session = Depends(
     return False
 
 
-#Basic function to end the game, we could update it later if we need to
+#Basic function to end the game
 def end_game(game_id: int, db: Session):
     game = db.query(models.Game).filter(models.Game.id == game_id).first()
     if game:
@@ -99,15 +96,12 @@ def is_valid_position_format(pos_str: str) -> bool:
         return False
     
     
-def promote_to_king(
+def promoted_to_king(
     piece_id: int, 
-    to_position: str,
+    new_row: int,
     player_id: int, 
-    game_id: int, 
     db: Session
 ) -> bool:
-
-    new_row = int(to_position.strip('{}').split(',')[0])
 
     player = db.query(models.Player).filter(models.Player.id == player_id).first()
     
@@ -117,25 +111,20 @@ def promote_to_king(
 
             piece = db.query(models.Piece).filter(models.Piece.id == piece_id).first()
             if piece:
-                piece.is_king = True
-
-            end_game(game_id, db)
-
-            return True
+                return True
 
     return False
 
 
-def capture_piece(
-    from_position: str, 
-    to_position: str, 
-    player_id: int, 
-    game_id: int, 
+def is_valid_jump(
+    from_row: int,
+    from_col: int,
+    to_row: int,
+    to_col: int, 
+    player_id: int,
     db: Session
 ) -> bool:
     
-    from_row, from_col = map(int, from_position.strip('{}').split(','))
-    to_row, to_col = map(int, to_position.strip('{}').split(','))
     jumped_row, jumped_col = (from_row + to_row) // 2, (from_col + to_col) // 2
     jumped_position = f'{{{jumped_row},{jumped_col}}}'
 
@@ -146,39 +135,32 @@ def capture_piece(
     ).first()
     
     if jumped_piece:
-
-        jumped_piece.is_out = True
-
-        capturing_piece = db.query(models.Piece).filter(
-            models.Piece.position == from_position,
-            models.Piece.player_id == player_id,
-            models.Piece.is_out == False
-        ).first()
-
-        if not capturing_piece:
-            return False  
-
-        last_move = db.query(models.Move).filter_by(game_id=game_id).order_by(models.Move.move_order.desc()).first()
-        next_move_order = last_move.move_order + 1 if last_move else 1
-
-        capture_move_type = db.query(models.MoveType).filter_by(name="capture").first()
-        if not capture_move_type:
-            return False
-
-        new_move = models.Move(
-            piece_id=capturing_piece.id,
-            game_id=game_id,
-            player_id=player_id,
-            move_type_id=capture_move_type.id,
-            move_order=next_move_order,
-            from_position=from_position,
-            to_position=to_position,
-            piece_taken=jumped_piece.id,
-            is_king=capturing_piece.is_king 
-        )
-
-        db.add(new_move)
-        db.commit()
-
         return True
+    
     return False
+
+
+def captured_piece(
+    from_row: int, 
+    from_col: int, 
+    to_row: int, 
+    to_col: int, 
+    player_id: int,
+    db: Session
+) -> int:
+    
+    jumped_row, jumped_col = (from_row + to_row) // 2, (from_col + to_col) // 2
+    jumped_position = f'{{{jumped_row},{jumped_col}}}'
+
+    jumped_piece = db.query(models.Piece).filter(
+        models.Piece.position == jumped_position,
+        models.Piece.player_id != player_id, 
+        models.Piece.is_out == False
+    ).first()
+    
+    if jumped_piece:
+        jumped_piece.is_out = True
+        db.commit()
+        return jumped_piece.id 
+
+    return 0

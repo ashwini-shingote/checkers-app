@@ -9,24 +9,25 @@ from datetime import datetime, timezone
 from app import database, models, utils, schemas
 from app.schemas import (
         ErrorResponse,
-        PlayerBase,
         PlayerCreate,
         GameBase,
-        Games,
         GameInitialize,
-        MoveBase,
         MovesUpdate,
         PieceBase,
         Healthz
 )
 from app.moves import move_piece_from_to
 from app.utils import (
-        get_adjacent_cells, 
-        is_valid_cell, 
+        get_adjacent_cells,
         is_valid_move_direction,    
-        is_same_color,
+        captured_piece,
+        promoted_to_king,
+        end_game
 )
 from app.board import initialize_board
+
+move_type_regular = 1
+move_type_captured = 2
 
 app = FastAPI()
 
@@ -88,7 +89,7 @@ def create_player(
     return game
 
 # create board with players id received
-@app.get(
+@app.post(
         "/create-board/{player1_id}/{player2_id}", 
         response_model=GameInitialize
         )
@@ -101,9 +102,9 @@ def create_board(
     return {"board": initial_board, "player1_id": player1_id, "player2_id": player2_id}
 
 # move piece
-@app.get(
-                "/move-piece/{game_id}/{player_id}/{piece_id}/{from_position}/{to_position}", 
-                response_model=Union[MovesUpdate, PieceBase, ErrorResponse]
+@app.post(
+            "/move-piece/{game_id}/{player_id}/{piece_id}/{from_position}/{to_position}", 
+            response_model=Union[MovesUpdate, PieceBase, ErrorResponse]
         )
 def move_piece(
                 piece_id: int, 
@@ -125,51 +126,58 @@ def move_piece(
 
     # Check if the piece is at the expected position
     if piece.position != str(from_position) or piece.position == "":
-        # raise ValueError(f"Piece is not at position {from_position}")
-        return ErrorResponse(error="Piece is not at given start position ")
-    
-    # Get empty adjacent cells
+        return ErrorResponse(error="Piece is not at given start position")
+
+    from_row, from_col = map(int, from_position.strip('{}').split(','))
+    to_row, to_col = map(int, to_position.strip('{}').split(','))
+
+    # Validate move direction
+    if not is_valid_move_direction(
+                        current_player.color_id,
+                        from_row,
+                        to_row,
+                        to_col):
+        return ErrorResponse(error="Invalid move direction")
+
+    # Get empty valid movement cells
     adjacent_empty_cells = get_adjacent_cells(
-                        int(from_position[1]), 
-                        int(from_position[3]),
+                        from_position, 
+                        to_position,
+                        player_id,
                         db
                         )
     
-    # Check if the move is valid
-    if not is_valid_cell(int(to_position[1]), int(to_position[3])):
-        return ErrorResponse(error="Invalid move 1")
+    if (to_row, to_col) not in adjacent_empty_cells:
+        return ErrorResponse(error="Invalid move")
     
-    # validate color of the piece
-    # if is_same_color(to_position, current_player.color_id, db):
-    #     return ErrorResponse(error="Same color piece at destination")
-    
-    if (int(to_position[1]), int(to_position[3])) not in adjacent_empty_cells:
-        return ErrorResponse(error="Invalid move 2")
+    captured_piece_id = captured_piece(from_row, from_col, to_row, to_col, player_id, db)
 
-    # validate move direction
-    if not is_valid_move_direction(
-                        current_player.color_id,
-                        (int(from_position[1]), int(from_position[3])),
-                        (int(to_position[1]), int(to_position[3]))):
-        return ErrorResponse(error="Invalid move 3")
-    
-    # Move the piece
-    db.commit()
-    db.refresh(piece)
-    
     # update the piece's position in the database
     piece.position = to_position
-    
+    db.commit()
+    db.refresh(piece)
+
+    is_now_king = promoted_to_king(piece_id, to_row, player_id, db)
+
     moves = models.Move(
                         piece_id=piece_id, 
                         from_position=from_position, 
                         to_position=to_position, 
                         player_id=piece.player_id, 
-                        game_id=game_id
-                    )
+                        game_id=game_id,
+                        piece_taken=captured_piece_id,
+                        is_king=is_now_king,
+                        move_type_id=move_type_regular if captured_piece_id is 0 else move_type_captured
+                        )
+
     db.add(moves)
     db.commit()
     db.refresh(moves)
+
+    # Check if the game is over
+    if is_now_king:
+        end_game(game_id, db)
+
     # return piece
     return {
             "id": moves.id,
@@ -181,57 +189,8 @@ def move_piece(
             "from_position": str(from_position),
             "to_position": str(to_position),
             "piece_taken": str(moves.piece_taken) or "",  # replace None with empty string
-            "is_king": moves.is_king,
+            "is_king": is_now_king,
     }
-
-# create endpoint to check if cells are empty
-@app.get("/empty-cells/{row}/{col}")
-def empty_cells(row: int, col: int):
-    return get_adjacent_cells(row, col)
-
-#promote to king endpoint, needs testing
-
-@app.post("/game/{game_id}/promote-to-king/")
-def promote_to_king_endpoint(
-    game_id: int,
-    player_id: int,
-    piece_id: int,
-    to_position: str,
-    db: Session = Depends(get_db)
-):
-    success = utils.promote_to_king(piece_id, to_position, player_id, game_id, db)
-    if success:
-        return JSONResponse(content={"detail": "Promotion successful"}, status_code=200)
-    else:
-        raise HTTPException(status_code=400, detail="Promotion failed.")
-    
-
-#capture piece endpoint, needs testing
-@app.post("/game/{game_id}/{player_id}/capture-piece/", response_model=schemas.MoveBase)
-def capture_piece_endpoint(
-    game_id: int,
-    player_id: int,
-    from_position: str,
-    to_position: str,
-    db: Session = Depends(get_db)
-):
-    successful_capture = utils.capture_piece(from_position, to_position, player_id, game_id, db)
-
-    if not successful_capture:
-        raise HTTPException(status_code=400, detail="Invalid capture attempt or no piece to capture at the specified position.")
-    
-    latest_move = db.query(models.Move).filter_by(
-        game_id=game_id,
-        player_id=player_id
-    ).order_by(models.Move.id.desc()).first()
-
-    if latest_move:
-
-        return schemas.MoveBase.from_orm(latest_move)
-    else:
-
-        raise HTTPException(status_code=404, detail="Failed to retrieve the move record after capture.")
-
 
 # Health check
 @app.get("/healthz", response_model=Healthz)
